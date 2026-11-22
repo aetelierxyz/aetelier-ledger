@@ -1,0 +1,39 @@
+[package]
+name = "aetelier-ledger-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+description = "Command line client for Aetelier token balances and USDC top-ups over x402."
+
+[[bin]]
+name = "aetelier-ledger-cli"
+path = "src/main.rs"
+
+[dependencies]
+aetelier-ledger-x402 = { workspace = true }
+
+chrono = { workspace = true }
+clap = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+solana-keypair = { workspace = true }
+solana-signer = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["time"] }
+url = { workspace = true }
+
+[dev-dependencies]
+aetelier-ledger-x402 = { workspace = true, features = ["test-util"] }
+axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
+base64 = { workspace = true }
+solana-instruction = { workspace = true }
+solana-message = { workspace = true }
+solana-transaction = { workspace = true }
+tokio = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,177 @@
+name: release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify:
+    name: verify
+    if: github.repository == 'aetelierxyz/aetelier-ledger'
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with:
+          toolchain: 1.99.0
+      - name: signed annotated tag on main
+        if: github.event_name == 'push'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git fetch --force origin "+refs/tags/$TAG:refs/tags/$TAG"
+          test "$(git cat-file -t "refs/tags/$TAG")" = tag
+          test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$GITHUB_SHA"
+          git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile=.github/allowed_signers tag -v "$TAG"
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - name: version
+        id: version
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="$(cargo metadata --locked --no-deps --format-version 1 | jq -r '[.packages[].version] | unique | if length == 1 then .[0] else error("workspace versions differ") end')"
+          if [ "$EVENT" = push ]; then
+            test "$REF_NAME" = "v$version"
+            tag="$REF_NAME"
+          else
+            tag="v$version"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - name: cargo test
+        run: cargo test --locked --workspace
+
+  build:
+    name: build (${{ matrix.target }})
+    needs: verify
+    if: github.repository == 'aetelierxyz/aetelier-ledger'
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-15
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-24.04
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-24.04-arm
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    env:
+      TAG: ${{ needs.verify.outputs.tag }}
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with:
+          toolchain: 1.99.0
+          targets: ${{ matrix.target }}
+      - name: musl toolchain
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends musl-tools
+          echo "CC_${TARGET//-/_}=musl-gcc" >> "$GITHUB_ENV"
+      - name: cargo build
+        run: cargo build --locked --release -p aetelier-ledger-cli --target "$TARGET"
+      - name: smoke test
+        run: |
+          set -euo pipefail
+          printed="$("target/$TARGET/release/aetelier-ledger-cli" --version)"
+          test "$printed" = "aetelier-ledger-cli ${TAG#v}"
+      - name: package
+        run: |
+          set -euo pipefail
+          name="aetelier-ledger-cli-$TAG-$TARGET"
+          mkdir -p "dist/$name"
+          cp "target/$TARGET/release/aetelier-ledger-cli" LICENSE README.md "dist/$name/"
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          rm -rf "dist/$name"
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        if: github.event_name == 'push'
+        with:
+          subject-path: |
+            dist/aetelier-ledger-cli-${{ needs.verify.outputs.tag }}-${{ matrix.target }}.tar.gz
+            target/${{ matrix.target }}/release/aetelier-ledger-cli
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: aetelier-ledger-cli-${{ matrix.target }}
+          path: dist/aetelier-ledger-cli-${{ needs.verify.outputs.tag }}-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+
+  publish:
+    name: publish
+    needs: [verify, build]
+    if: github.repository == 'aetelierxyz/aetelier-ledger' && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.verify.outputs.tag }}
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: annotated tag
+        run: |
+          set -euo pipefail
+          git fetch --force origin "+refs/tags/$TAG:refs/tags/$TAG"
+          test "$(git cat-file -t "refs/tags/$TAG")" = tag
+          test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$GITHUB_SHA"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          pattern: aetelier-ledger-cli-*
+          path: dist
+          merge-multiple: true
+      - name: checksums
+        working-directory: dist
+        run: sha256sum *.tar.gz > SHA256SUMS
+      - name: notes
+        run: |
+          set -euo pipefail
+          git tag -l --format='%(contents:subject)%0a%0a%(contents:body)' "$TAG" > notes.md
+          {
+            echo
+            echo "## Verify"
+            echo
+            echo '```bash'
+            echo "gh attestation verify <file> -R $GH_REPO --signer-workflow $GH_REPO/.github/workflows/release.yml --source-ref refs/tags/$TAG"
+            echo "gh release verify $TAG -R $GH_REPO"
+            echo "shasum -a 256 -c SHA256SUMS --ignore-missing"
+            echo "git -c gpg.ssh.allowedSignersFile=.github/allowed_signers tag -v $TAG"
+            echo '```'
+          } >> notes.md
+      - name: release
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" --verify-tag --draft --title "$TAG" --notes-file notes.md dist/*.tar.gz dist/SHA256SUMS
+          gh release edit "$TAG" --draft=false

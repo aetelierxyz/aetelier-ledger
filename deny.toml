@@ -1,0 +1,32 @@
+[graph]
+exclude-dev = true
+
+[advisories]
+version = 2
+yanked = "warn"
+ignore = [
+    { id = "RUSTSEC-2025-0141", reason = "bincode 1.3.3 is unmaintained, not vulnerable; its authors declare it complete and no patched release exists" },
+    { id = "RUSTSEC-2026-0543", reason = "chrono is unmaintained, not vulnerable; no maintained release or safe upgrade exists" },
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "warn"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "ISC",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "Unicode-3.0",
+    "CDLA-Permissive-2.0",
+    "Zlib",
+]
+confidence-threshold = 0.9
