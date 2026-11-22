@@ -9,7 +9,7 @@ Every command prints exactly one JSON object on stdout, including errors; `--hel
 Release binaries for macOS arm64 and Linux x86_64 and arm64 are attached to each [release](https://github.com/aetelierxyz/aetelier-ledger/releases); the [repository README](../../README.md#install) shows how to download and verify them. From source, with Rust 1.89 or later:
 
 ```bash
-cargo install --locked --git https://github.com/aetelierxyz/aetelier-ledger --tag v0.1.0 aetelier-ledger-cli
+cargo install --locked --git https://github.com/aetelierxyz/aetelier-ledger --tag v0.0.1 aetelier-ledger-cli
 ```
 
 ## Commands
