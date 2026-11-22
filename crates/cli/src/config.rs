@@ -7,7 +7,7 @@ use url::{Host, Url};
 use crate::error::CliError;
 
 pub const DEFAULT_URL: &str = "https://aetelier.xyz";
-pub const MAINNET_TREASURY: Option<&str> = None;
+pub const MAINNET_TREASURY: Option<&str> = Some("74voCLtQkUTUU51pKC3zf38wCmbnE6rNmt284pWGsFNf");
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 pub enum NetworkName {
@@ -141,7 +141,17 @@ mod tests {
             NetworkName::Mainnet.network().caip2(),
             Network::MAINNET_CAIP2
         );
-        assert_eq!(MAINNET_TREASURY, None);
+    }
+
+    #[test]
+    fn the_mainnet_treasury_is_a_wallet_with_a_known_usdc_account() {
+        let treasury = pinned_treasury(MAINNET_TREASURY).unwrap().unwrap();
+        assert!(treasury.is_on_curve());
+        let mint = Address::from_str(Network::SolanaMainnet.usdc_mint()).unwrap();
+        assert_eq!(
+            aetelier_ledger_x402::tx::associated_token_address(&treasury, &mint).to_string(),
+            "GKJmKAryG2nZEDVNz99CkM4LZwP5JAeGARq1zo5NBQHg"
+        );
     }
 
     #[test]

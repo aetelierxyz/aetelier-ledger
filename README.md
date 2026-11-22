@@ -24,7 +24,7 @@ The transaction builder and the command line client behind Aetelier token top-up
 - `aetelier-ledger-cli buy` rebuilds that transaction locally from the payment requirements with the same crate and signs only if it is byte for byte identical to the one the server prepared. Anything else is refused with `transaction_mismatch` before signing.
 - A settled devnet payment is captured in `crates/x402/testdata` and rebuilt byte for byte by the tests.
 - `bincode` and the Solana crates are pinned to exact versions in `Cargo.toml`, so the serialised bytes cannot change without a change to this repository.
-- This build does not pay on mainnet: it carries no mainnet treasury address, so `buy --network mainnet` is refused.
+- On mainnet the CLI pays only the Aetelier treasury built into the binary, `74voCLtQkUTUU51pKC3zf38wCmbnE6rNmt284pWGsFNf` (USDC account `GKJmKAryG2nZEDVNz99CkM4LZwP5JAeGARq1zo5NBQHg`); any other `payTo` is refused with `pay_to_mismatch` before signing.
 
 ## Install
 
