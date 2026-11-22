@@ -9,7 +9,7 @@ Every command prints exactly one JSON object on stdout, including errors; `--hel
 Release binaries for macOS arm64 and Linux x86_64 and arm64 are attached to each [release](https://github.com/aetelierxyz/aetelier-ledger/releases); the [repository README](../../README.md#install) shows how to download and verify them. From source, with Rust 1.89 or later:
 
 ```bash
-cargo install --locked --git https://github.com/aetelierxyz/aetelier-ledger --tag v0.0.1 aetelier-ledger-cli
+cargo install --locked --git https://github.com/aetelierxyz/aetelier-ledger --tag v0.0.2 aetelier-ledger-cli
 ```
 
 ## Commands
@@ -41,7 +41,7 @@ A flag wins over its variable.
 - The API key is created in the web app under Settings, API keys.
 - The keypair file is a Solana CLI JSON byte array. Files readable by group or others are refused.
 - The payer wallet needs USDC only; transaction fees are paid by the facilitator.
-- This build does not pay on mainnet.
+- On mainnet, `buy` pays only the Aetelier treasury `74voCLtQkUTUU51pKC3zf38wCmbnE6rNmt284pWGsFNf`, built into the binary.
 
 ## What `buy` checks before signing
 

@@ -108,7 +108,7 @@ fn keygen_and_address_round_trip_without_overwriting() {
 }
 
 #[test]
-fn buy_without_network_or_on_mainnet_is_refused_early() {
+fn buy_without_network_is_refused_early_and_mainnet_reaches_the_api() {
     let dir = scratch("network");
     let key = keygen(&dir);
     let out = cli(&["buy", "data_100", "--keypair", &key], Some("k"));
@@ -118,6 +118,8 @@ fn buy_without_network_or_on_mainnet_is_refused_early() {
         &[
             "buy",
             "data_100",
+            "--url",
+            "http://127.0.0.1:9",
             "--keypair",
             &key,
             "--network",
@@ -126,8 +128,8 @@ fn buy_without_network_or_on_mainnet_is_refused_early() {
         ],
         Some("k"),
     );
-    assert_eq!(code(&out), 2);
-    assert_eq!(json(&out)["error"]["code"], "mainnet_not_enabled");
+    assert_eq!(code(&out), 6);
+    assert_eq!(json(&out)["error"]["code"], "network_error");
     std::fs::remove_dir_all(dir).unwrap();
 }
 
@@ -192,19 +194,29 @@ fn flags_win_over_environment_variables() {
         &buy,
         Some("k"),
         &[
-            ("AETELIER_NETWORK", "mainnet"),
+            ("AETELIER_NETWORK", "devnet"),
             ("AETELIER_PAYER_KEYPAIR", key.as_str()),
         ],
     );
-    assert_eq!(code(&out), 2);
-    assert_eq!(json(&out)["error"]["code"], "mainnet_not_enabled");
+    assert_eq!(code(&out), 6);
+    assert_eq!(json(&out)["error"]["code"], "network_error");
+    let out = cli_env(
+        &buy,
+        Some("k"),
+        &[
+            ("AETELIER_NETWORK", "testnet"),
+            ("AETELIER_PAYER_KEYPAIR", key.as_str()),
+        ],
+    );
+    assert_eq!(code(&out), 1);
+    assert_eq!(json(&out)["error"]["code"], "usage");
     let mut devnet = buy.to_vec();
     devnet.extend(["--network", "devnet", "--keypair", key.as_str()]);
     let out = cli_env(
         &devnet,
         Some("k"),
         &[
-            ("AETELIER_NETWORK", "mainnet"),
+            ("AETELIER_NETWORK", "testnet"),
             ("AETELIER_PAYER_KEYPAIR", "/nonexistent.json"),
         ],
     );
